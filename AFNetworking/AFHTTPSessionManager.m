@@ -221,6 +221,7 @@
 {
     NSURLSessionDataTask *dataTask = [self dataTaskWithHTTPMethod:@"PUT" URLString:URLString parameters:parameters uploadProgress:nil downloadProgress:nil success:success failure:failure];
 
+    NSLog(@"NSURLSessionDataTask_parms %@",parameters);
     [dataTask resume];
 
     return dataTask;
@@ -258,8 +259,14 @@
                                          success:(void (^)(NSURLSessionDataTask *, id))success
                                          failure:(void (^)(NSURLSessionDataTask *, NSError *))failure
 {
+    BOOL isJson = [parameters isKindOfClass:[NSDictionary class]];
+    
     NSError *serializationError = nil;
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:method URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:&serializationError];
+    NSMutableURLRequest *request =
+    [self.requestSerializer requestWithMethod:method
+                                    URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString]
+                                   parameters:isJson?parameters:nil
+                                        error:&serializationError];
     if (serializationError) {
         if (failure) {
 #pragma clang diagnostic push
@@ -272,15 +279,33 @@
 
         return nil;
     }
-
+    
+    if (!isJson) {
+        request.HTTPBody = parameters;
+    }
+    
+#if DEBUG
+    NSString *resquestBody = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
+    NSLog(@"url:%@  \nheader:%@  \nparameters:%@ \nbody:%@", request.URL.absoluteString, request.allHTTPHeaderFields, parameters, resquestBody);
+#endif
+    
+    
     __block NSURLSessionDataTask *dataTask = nil;
     dataTask = [self dataTaskWithRequest:request
                           uploadProgress:uploadProgress
                         downloadProgress:downloadProgress
                        completionHandler:^(NSURLResponse * __unused response, id responseObject, NSError *error) {
         if (error) {
-            if (failure) {
-                failure(dataTask, error);
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            if (httpResponse.statusCode == 401) {
+                NSLog(@"用户登录信息失效，请重新登录");
+                
+                [[NSNotificationCenter defaultCenter] postNotificationName:NOTI_USER_LOGOUT_401 object:nil];
+            }else{
+                if (failure) {
+                    failure(dataTask, error);
+                    NSLog(@"error:%@", error);
+                }
             }
         } else {
             if (success) {

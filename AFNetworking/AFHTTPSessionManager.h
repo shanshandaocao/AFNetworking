@@ -33,6 +33,10 @@
 
 #import "AFURLSessionManager.h"
 
+// 401 强制用户退出登录
+#define     NOTI_USER_LOGOUT_401          @"NOTI_USER_LOGOUT_401"
+
+
 /**
  `AFHTTPSessionManager` is a subclass of `AFURLSessionManager` with convenience methods for making HTTP requests. When a `baseURL` is provided, requests made with the `GET` / `POST` / et al. convenience methods can be made with relative paths.
 
